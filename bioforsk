@@ -1,0 +1,200 @@
+#!/usr/bin/perl -w
+#
+# NAME:
+# bioforsk
+#
+# PURPOSE:
+# Convert raw data to the ASCII format used previously at
+# /opdata/automat/data. This is required temporarily as OBS changed the
+# handling of these data in April 2010.
+#
+# The present version reads raw data files and segments these into
+# formatted files while converting time specifications to UTC. The present
+# format differs slightly from the format found at
+# /opdata/automat/data/*.cYY in the last columns, but contains both global
+# radiation and minutes of direct insolation.
+#
+# REQUIREMENTS:
+# NA
+#
+# INPUT:
+# NA
+#
+# OUTPUT:
+# NA
+#
+# NOTES:
+# Bioforsk data are provided in CET, conversion to UTC is required.
+#
+# BUGS:
+# NA
+#
+# AUTHOR:
+# Øystein Godøy, METNO/FOU, 06.08.2010 
+#
+# MODIFIED:
+# NA
+#
+# CVS_ID:
+# $Id: bioforsk,v 1.1 2010-08-10 09:04:25 steingod Exp $
+#
+
+use strict;
+use fmutil;
+use Getopt::Std;
+use Date::Manip;
+use POSIX qw(strftime);
+
+use vars qw($opt_h $opt_i $opt_o);
+
+my %stations = (
+	22 => {name => "Apelsvoll", stid => "11500"},
+	26 => {name => "Fureneset", stid => "56420"},
+	30 => {name => "Holt", stid => "90400"},
+	21 => {name => "Kise", stid => "12550"},
+	27 => {name => "Kvithamar", stid => "69150"},
+	24 => {name => "Landvik", stid => "38140"},
+	23 => {name => "Løken", stid => "23500"},
+	25 => {name => "Særheim", stid => "44300"},
+	28 => {name => "Tjøtta", stid => "76530"},
+	29 => {name => "Vågønes", stid => "82260"},
+	);
+
+sub usage;
+sub read_file;
+sub extract_data;
+sub write_file;
+
+my($infile, $outpath, $outfile, @fc, @nc);
+
+usage() unless getopts('hi:o:');
+if ($opt_h) {
+    usage();
+}
+usage() unless ($opt_i && $opt_o);
+if ($opt_i) {
+    $infile = $opt_i;
+}
+if ($opt_o) {
+    $outpath = $opt_o;
+}
+
+@fc = read_file($infile);
+
+@nc = extract_data(@fc);
+
+#$outfile = sprintf("%s/bioforsk_%s.txt",$outpath,);
+
+write_file($outpath,@nc);
+
+#print @nc;
+
+exit;
+
+###########################################################
+# Subroutines below...
+#
+
+sub usage() {
+    print "\n";
+    print " bioforsk [-h] -i <infile> -o <outpath>\n";
+    print "\n";
+    exit;
+}
+
+sub read_file($) {
+
+    my($filename) = @_;
+    my(@text);
+
+    open FH, "<$filename" or die " Could not open file $filename\n";
+    @text = <FH>;
+    close FH;
+
+    return(@text);
+}
+
+sub extract_data($@) {
+
+    my(@olddata) = @_;
+    my($line,@tmparr);
+    my(@newdata);
+    my($stnr,$mydate,$yy,$mm,$dd,$ho,$mi,$se);
+    my($mystring, $headerdone, $myheader);
+    my $mypar = "TTM   TTN   TTX   TJM TJM20 TJM50 UUM UUX     RR   FM2   FG2   FX2     QO   BT  TGM   TGN   TGX  ST\n";
+
+    $headerdone = 0;
+    foreach $line (@olddata) {
+	next if $line =~ m/^,/;
+	@tmparr = split /,/,$line;
+	$stnr = $tmparr[0];
+	($yy,$mm,$dd,$ho,$mi,$se) = Date_NthDayOfYear($tmparr[1],$tmparr[2]);
+	$ho = int $tmparr[3]/100;
+	$mi = $tmparr[3]-($ho*100);
+	$mystring = sprintf("%4d%02d%02d%02d:%02d:00",$yy,$mm,$dd,$ho,$mi);
+	$mydate = ParseDateString($mystring);
+	$mydate = Date_ConvTZ($mydate,"CET","GMT");
+	$mydate = UnixDate($mydate,"%Y%m%d%H%M%S");
+	$myheader = sprintf("%02d %11s   %s",$stnr,$stations{$stnr}{name},$mypar);
+	unless ($headerdone) {
+	    push @newdata,$myheader;
+	    $headerdone++;
+	};
+	undef($mystring);
+	$mystring = sprintf
+	"%s%6.1f%6.1f%6.1f%6.1f%6.1f%6.1f%4d%4d%7.1f%6.1f%6.1f%6.1f%7.1f%4d%6.1f%6.1f%6.1f%4d\n",
+	    $mydate,
+	    $tmparr[4],$tmparr[5],$tmparr[6],
+	    $tmparr[7],$tmparr[8],$tmparr[9],
+	    $tmparr[10],$tmparr[11],
+	    $tmparr[12],
+	    $tmparr[13],$tmparr[14],$tmparr[15],
+	    $tmparr[16],
+	    $tmparr[17],
+	    $tmparr[18],$tmparr[19],$tmparr[20],
+	    $tmparr[21];
+	push @newdata,$mystring;
+    }
+
+    return(@newdata);
+}
+
+sub write_file($@) {
+
+    my($outpath,@text) = @_;
+    my($line,@tmparr);
+    my($mydate,$year,$month,$mday,$hour,$min,$sec);
+    my(@filenames,$filename,$stnr,$nextfile,$firstline);
+
+    $nextfile = 0;
+    foreach $line (@text) {
+	@tmparr = split /\s+/,$line;
+	if (length($tmparr[0]) < 4) {
+	    $stnr = $tmparr[0];
+	    $firstline = $line;
+	    print "$stnr\n";
+	    print "skipping this record...\n";
+	    next;
+	}
+	$mydate = ParseDateString($tmparr[0]);
+	($year,$month,$mday,$hour,$min) = UnixDate($mydate,"%Y","%m","%d","%H","%M");
+	$filename = sprintf("%s/%02d0%05d.c%2d",$outpath,$month,$stations{$stnr}{stid},substr($year,2,2));
+	unless (grep /$filename/,@filenames) {
+	    push @filenames, $filename; 
+	    if (fileno(FH)) {
+		print "Closing existing filehandle\n";
+		close FH;
+	    }
+	    open FH, ">$filename" or die " Could not open file $filename\n";
+	    print "Dumping data to $filename\n";
+	    print FH "$firstline";
+	    $nextfile = 1;
+	}
+	print FH "$line";
+    }
+
+    close FH;
+
+    return(FM_OK);
+}
+
