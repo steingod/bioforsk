@@ -24,7 +24,10 @@
 # NA
 #
 # NOTES:
-# Bioforsk data are provided in CET, conversion to UTC is required.
+# Bioforsk data are provided in CET, conversion to UTC is required. Do
+# also remember that the time provided for an observation is the starting
+# time for the observation period. I.e observations are valid for the hour
+# following the time specified.
 #
 # BUGS:
 # NA
@@ -36,7 +39,7 @@
 # NA
 #
 # CVS_ID:
-# $Id: bioforsk,v 1.1 2010-08-10 09:04:25 steingod Exp $
+# $Id: bioforsk,v 1.2 2010-08-11 11:50:29 steingod Exp $
 #
 
 use strict;
