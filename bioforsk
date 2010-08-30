@@ -36,10 +36,11 @@
 # Øystein Godøy, METNO/FOU, 06.08.2010 
 #
 # MODIFIED:
-# NA
+# Øystein Godøy, METNO/FOU, 30.08.2010: Missing values due to low battery
+# (6999 and -6999) are recoded to -999.
 #
-# CVS_ID:
-# $Id: bioforsk,v 1.2 2010-08-11 11:50:29 steingod Exp $
+# ID:
+# $Id: bioforsk,v 1.3 2010-08-30 11:27:55 steingod Exp $
 #
 
 use strict;
@@ -129,6 +130,7 @@ sub extract_data($@) {
     $headerdone = 0;
     foreach $line (@olddata) {
 	next if $line =~ m/^,/;
+	$line =~ s/-?6999/-99./;
 	@tmparr = split /,/,$line;
 	$stnr = $tmparr[0];
 	($yy,$mm,$dd,$ho,$mi,$se) = Date_NthDayOfYear($tmparr[1],$tmparr[2]);
@@ -177,10 +179,14 @@ sub write_file($@) {
 	    $firstline = $line;
 	    print "$stnr\n";
 	    print "skipping this record...\n";
+	    print "\t$line\n";
 	    next;
 	}
 	$mydate = ParseDateString($tmparr[0]);
 	($year,$month,$mday,$hour,$min) = UnixDate($mydate,"%Y","%m","%d","%H","%M");
+	unless (defined($year) && defined($month)) {
+	    print "Date extraction failed on $tmparr[0]\n";
+	}
 	$filename = sprintf("%s/%02d0%05d.c%2d",$outpath,$month,$stations{$stnr}{stid},substr($year,2,2));
 	unless (grep /$filename/,@filenames) {
 	    push @filenames, $filename; 

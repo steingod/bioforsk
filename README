@@ -1,0 +1,23 @@
+Kontaktpunkt hos oss:
+    Ola Bondlid
+
+Vedrørende lagringsformatet:
+
+    I rådatafilene lagres bare tallene 0..9, punktum (desimaltegn), minus
+    (negativt fortegn) og komma (skilletegn).
+
+    Det lagres alltid en verdi (aldri to eller flere komma rett etter
+    hverandre).
+
+    I loggeprogrammene er det ingen feilkorreksjoner. Derfor kan for
+    eksempel luftfuktigheten bli lagra = 150 % hvis det oppstår en feil i
+    føleren.
+
+    Noen ganger lagres verdien -6999 eller 6999. Det skyldes enten at
+    signalspenninga er for høy til at den kan måles (feil i føleren eller
+    overledning i følerkabelen), eller at den aktuelle loggerinngangen er
+    åpen (føleren frakobla eller brudd i følerkabelen).
+
+    Noen parametere settes fast = 0 av loggeprogrammet fordi den aktuelle
+    målinga ikke blir utført. Lagringsoversiktene dere har fått tidligere
+    viser hvilke parametere dette gjelder.
