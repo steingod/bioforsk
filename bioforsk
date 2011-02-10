@@ -38,9 +38,11 @@
 # MODIFIED:
 # Øystein Godøy, METNO/FOU, 30.08.2010: Missing values due to low battery
 # (6999 and -6999) are recoded to -999.
+# Øystein Godøy, METNO/FOU, 2011-02-10: Added the possibility to operate
+# on a full directory. 
 #
 # ID:
-# $Id: bioforsk,v 1.4 2010-09-13 13:41:45 steingod Exp $
+# $Id: bioforsk,v 1.5 2011-02-10 11:34:59 steingod Exp $
 #
 
 use strict;
@@ -49,7 +51,7 @@ use Getopt::Std;
 use Date::Manip;
 use POSIX qw(strftime);
 
-use vars qw($opt_h $opt_i $opt_o);
+use vars qw($opt_h $opt_i $opt_p $opt_o);
 
 my %stations = (
 	22 => {name => "Apelsvoll", stid => "11500"},
@@ -69,29 +71,40 @@ sub read_file;
 sub extract_data;
 sub write_file;
 
-my($infile, $outpath, $outfile, @fc, @nc);
+my($DH, $item);
+my($infile, $inpath, $outpath, $outfile, @dc, @fc, @nc);
 
-usage() unless getopts('hi:o:');
+usage() unless getopts('hi:p:o:');
 if ($opt_h) {
     usage();
 }
-usage() unless ($opt_i && $opt_o);
+usage() unless ($opt_o && ($opt_i || $opt_p));
 if ($opt_i) {
     $infile = $opt_i;
+}
+if ($opt_p) {
+    $inpath = $opt_p;
 }
 if ($opt_o) {
     $outpath = $opt_o;
 }
 
-@fc = read_file($infile);
-
-@nc = extract_data(@fc);
-
-#$outfile = sprintf("%s/bioforsk_%s.txt",$outpath,);
-
-write_file($outpath,@nc);
-
-#print @nc;
+if ($opt_i) {
+    @fc = read_file($infile);
+    @nc = extract_data(@fc);
+    write_file($outpath,@nc);
+} elsif ($opt_p) {
+    opendir($DH,$inpath) or die "Could not open $inpath";
+    @dc = readdir($DH);
+    foreach $item (@dc) {
+        next unless $item =~ m/\.dat/;
+        $infile = $inpath."/".$item;
+        @fc = read_file($infile);
+        @nc = extract_data(@fc);
+        next if (@nc == FM_ERROR);
+        write_file($outpath,@nc);
+    }
+}
 
 exit;
 
@@ -101,7 +114,7 @@ exit;
 
 sub usage() {
     print "\n";
-    print " bioforsk [-h] -i <infile> -o <outpath>\n";
+    print " bioforsk [-h] -i <infile>|-p <inpath> -o <outpath>\n";
     print "\n";
     exit;
 }
@@ -121,8 +134,8 @@ sub read_file($) {
 sub extract_data($@) {
 
     my(@olddata) = @_;
-    my($line,@tmparr);
-    my(@newdata);
+    my($line,@tmparr,@mk);
+    my(@newdata, $item, $match);
     my($stnr,$mydate,$yy,$mm,$dd,$ho,$mi,$se);
     my($mystring, $headerdone, $myheader);
     my $mypar = "TTM   TTN   TTX   TJM TJM20 TJM50 UUM UUX     RR   FM2   FG2   FX2     QO   BT  TGM   TGN   TGX  ST\n";
@@ -133,6 +146,15 @@ sub extract_data($@) {
 	$line =~ s/-?6999/-999./g;
 	@tmparr = split /,/,$line;
 	$stnr = $tmparr[0];
+        @mk = keys(%stations);
+        $match = 0;
+        foreach $item (@mk) {
+            if ($stnr == $item) {
+                $match = 1;
+                last;
+            }
+        }
+        return(FM_ERROR) unless ($match);
 	($yy,$mm,$dd,$ho,$mi,$se) = Date_NthDayOfYear($tmparr[1],$tmparr[2]);
 	$ho = int $tmparr[3]/100;
 	$mi = $tmparr[3]-($ho*100);
