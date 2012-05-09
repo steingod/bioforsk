@@ -1,3 +1,10 @@
+########################################################### 
+README
+########################################################### 
+
+Formål:
+Håndtering av Bioforsk data hos oss. 
+
 Kontaktpunkt hos oss:
     Ola Bondlid
 
@@ -21,3 +28,42 @@ Vedrørende lagringsformatet:
     Noen parametere settes fast = 0 av loggeprogrammet fordi den aktuelle
     målinga ikke blir utført. Lagringsoversiktene dere har fått tidligere
     viser hvilke parametere dette gjelder.
+
+Vedrørende parametre:
+Listen under indikerer hvilke paramtre som potensielt kan leses fra
+Bioforskdataene. Ikke alle støttes i programvaren her eller på alle
+stasjoner.
+     TTM	 Mean air temp. 
+     TTN	 Min. air temp. 
+     TTX	 Max. air temp. 
+     TJM10;	 Mean soil temp. 10cm 
+     TJM20;	 Mean soil temp. 20cm 
+     TJM50;	 Mean soil temp. 50cm 
+     UUM	 Mean relative humidity 
+     UUX	 Max. relative humidity 
+     RR	         Precipitation 
+     FM2	 Mean wind at 2m 
+     FG2	 Wind gust at 2m 
+     FX2	 Max. wind at 2m ? 
+     Q0	         Global radiation 
+     BT	         Leaves humidity time last hour ? 
+     TGM	 Mean grass temp. 
+     TGN	 Min. grass temp. 
+     TGX	 Max. grass temp. 
+     ST	         Solar time (minutes of Sun last hour) 
+     TT	         Air. temp. 
+     TG	         Grass temp. 
+     UU	         Relative humidity 
+     FF2	 Wind speed at 2m 
+     FF	         Wind speed (6m or 10m) 
+     DD	         Wind direction 
+     FM	         Mean wind speed 
+     DM	         Mean wind direction 
+     FG	         Wind gust 
+     DG	         Gust direction 
+     FX	         Max. wind speed 
+     DX	         Max. wind direction ?? 
+     ARR	 Extra precipitation instrument (A - for 2 here) 
+     RA	         Accumulated precipitation ? 
+     LW;         Longwave irradiance 
+
