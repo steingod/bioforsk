@@ -29,6 +29,8 @@
 # time for the observation period. I.e observations are valid for the hour
 # following the time specified.
 #
+# Cleanup usage of DateTime and Date::Manip when time...
+#
 # BUGS:
 # NA
 #
@@ -40,15 +42,19 @@
 # (6999 and -6999) are recoded to -999.
 # Øystein Godøy, METNO/FOU, 2011-02-10: Added the possibility to operate
 # on a full directory. 
+# Øystein Godøy, METNO/FOU, 2013-02-03: Coorected bugs related to
+# Date::Manip and DateTime behaviour and summertime.
 #
 # ID:
-# $Id: bioforsk,v 1.5 2011-02-10 11:34:59 steingod Exp $
+# $Id: bioforsk,v 1.6 2013-02-03 12:10:29 steingod Exp $
 #
 
 use strict;
 use fmutil;
 use Getopt::Std;
 use Date::Manip;
+use DateTime;
+use DateTime::Format::ISO8601;
 use POSIX qw(strftime);
 
 use vars qw($opt_h $opt_i $opt_p $opt_o);
@@ -70,6 +76,7 @@ sub usage;
 sub read_file;
 sub extract_data;
 sub write_file;
+sub parse_date;
 
 my($DH, $item);
 my($infile, $inpath, $outpath, $outfile, @dc, @fc, @nc);
@@ -136,16 +143,17 @@ sub extract_data($@) {
     my(@olddata) = @_;
     my($line,@tmparr,@mk);
     my(@newdata, $item, $match);
-    my($stnr,$mydate,$yy,$mm,$dd,$ho,$mi,$se);
+    my($stnr,$yy,$mydate,$mm,$dd,$ho,$mi,$se);
     my($mystring, $headerdone, $myheader);
     my $mypar = "TTM   TTN   TTX   TJM TJM20 TJM50 UUM UUX     RR   FM2   FG2   FX2     QO   BT  TGM   TGN   TGX  ST\n";
+    my $iso8601 = DateTime::Format::ISO8601->new;
 
     $headerdone = 0;
     foreach $line (@olddata) {
-	next if $line =~ m/^,/;
-	$line =~ s/-?6999/-999./g;
-	@tmparr = split /,/,$line;
-	$stnr = $tmparr[0];
+        next if $line =~ m/^,/;
+        $line =~ s/-?6999/-999./g;
+        @tmparr = split /,/,$line;
+        $stnr = $tmparr[0];
         @mk = keys(%stations);
         $match = 0;
         foreach $item (@mk) {
@@ -155,32 +163,36 @@ sub extract_data($@) {
             }
         }
         return(FM_ERROR) unless ($match);
-	($yy,$mm,$dd,$ho,$mi,$se) = Date_NthDayOfYear($tmparr[1],$tmparr[2]);
-	$ho = int $tmparr[3]/100;
-	$mi = $tmparr[3]-($ho*100);
-	$mystring = sprintf("%4d%02d%02d%02d:%02d:00",$yy,$mm,$dd,$ho,$mi);
-	$mydate = ParseDateString($mystring);
-	$mydate = Date_ConvTZ($mydate,"CET","GMT");
-	$mydate = UnixDate($mydate,"%Y%m%d%H%M%S");
-	$myheader = sprintf("%02d %11s   %s",$stnr,$stations{$stnr}{name},$mypar);
-	unless ($headerdone) {
-	    push @newdata,$myheader;
-	    $headerdone++;
-	};
-	undef($mystring);
-	$mystring = sprintf
-	"%s%6.1f%6.1f%6.1f%6.1f%6.1f%6.1f%4d%4d%7.1f%6.1f%6.1f%6.1f%7.1f%4d%6.1f%6.1f%6.1f%4d\n",
-	    $mydate,
-	    $tmparr[4],$tmparr[5],$tmparr[6],
-	    $tmparr[7],$tmparr[8],$tmparr[9],
-	    $tmparr[10],$tmparr[11],
-	    $tmparr[12],
-	    $tmparr[13],$tmparr[14],$tmparr[15],
-	    $tmparr[16],
-	    $tmparr[17],
-	    $tmparr[18],$tmparr[19],$tmparr[20],
-	    $tmparr[21];
-	push @newdata,$mystring;
+        ($yy,$mm,$dd,$ho,$mi,$se) = Date_NthDayOfYear($tmparr[1],$tmparr[2]);
+        $ho = int $tmparr[3]/100;
+        $mi = $tmparr[3]-($ho*100);
+        #$mystring = sprintf("%4d%02d%02d%02d:%02d:00",$yy,$mm,$dd,$ho,$mi);
+        $mystring = sprintf("%4d-%02d-%02dT%02d:%02d:00",$yy,$mm,$dd,$ho,$mi);
+        #$mydate = ParseDateString($mystring);
+        #$mydate = Date_ConvTZ($mydate,"CET","GMT");
+        #$mydate = UnixDate($mydate,"%Y%m%d%H%M%S");
+        #$mydate = $iso8601->parse_datetime($mystring);
+        $mydate = parse_date($mystring);
+        $mydate->set_time_zone('UTC');
+        $myheader = sprintf("%02d %11s   %s",$stnr,$stations{$stnr}{name},$mypar);
+        unless ($headerdone) {
+            push @newdata,$myheader;
+            $headerdone++;
+        };
+        undef($mystring);
+        $mystring = sprintf
+            "%s%6.1f%6.1f%6.1f%6.1f%6.1f%6.1f%4d%4d%7.1f%6.1f%6.1f%6.1f%7.1f%4d%6.1f%6.1f%6.1f%4d\n",
+            $mydate->strftime("%Y%m%d%H%M%S"),
+            $tmparr[4],$tmparr[5],$tmparr[6],
+            $tmparr[7],$tmparr[8],$tmparr[9],
+            $tmparr[10],$tmparr[11],
+            $tmparr[12],
+            $tmparr[13],$tmparr[14],$tmparr[15],
+            $tmparr[16],
+            $tmparr[17],
+            $tmparr[18],$tmparr[19],$tmparr[20],
+            $tmparr[21];
+        push @newdata,$mystring;
     }
 
     return(@newdata);
@@ -190,38 +202,39 @@ sub write_file($@) {
 
     my($outpath,@text) = @_;
     my($line,@tmparr);
-    my($mydate,$year,$month,$mday,$hour,$min,$sec);
+    my($mydate,$year,$month,$mday);
     my(@filenames,$filename,$stnr,$nextfile,$firstline);
 
     $nextfile = 0;
     foreach $line (@text) {
-	@tmparr = split /\s+/,$line;
-	if (length($tmparr[0]) < 4) {
-	    $stnr = $tmparr[0];
-	    $firstline = $line;
-	    print "$stnr\n";
-	    print "skipping this record...\n";
-	    print "\t$line\n";
-	    next;
-	}
-	$mydate = ParseDateString($tmparr[0]);
-	($year,$month,$mday,$hour,$min) = UnixDate($mydate,"%Y","%m","%d","%H","%M");
-	unless (defined($year) && defined($month)) {
-	    print "Date extraction failed on $tmparr[0]\n";
-	}
-	$filename = sprintf("%s/%02d0%05d.c%2d",$outpath,$month,$stations{$stnr}{stid},substr($year,2,2));
-	unless (grep /$filename/,@filenames) {
-	    push @filenames, $filename; 
-	    if (fileno(FH)) {
-		print "Closing existing filehandle\n";
-		close FH;
-	    }
-	    open FH, ">$filename" or die " Could not open file $filename\n";
-	    print "Dumping data to $filename\n";
-	    print FH "$firstline";
-	    $nextfile = 1;
-	}
-	print FH "$line";
+        @tmparr = split /\s+/,$line;
+        if (length($tmparr[0]) < 4) {
+            $stnr = $tmparr[0];
+            $firstline = $line;
+            print "$stnr\n";
+            print "skipping this record...\n";
+            print "\t$line\n";
+            next;
+        }
+        $year = substr $tmparr[0],0,4;
+        $month = substr $tmparr[0],4,2;
+        $mday = substr $tmparr[0],6,2;
+        unless (defined($year) && defined($month)) {
+            print "Date extraction failed on $tmparr[0]\n";
+        }
+        $filename = sprintf("%s/%02d0%05d.c%2d",$outpath,$month,$stations{$stnr}{stid},substr($year,2,2));
+        unless (grep /$filename/,@filenames) {
+            push @filenames, $filename; 
+            if (fileno(FH)) {
+                print "Closing existing filehandle\n";
+                close FH;
+            }
+            open FH, ">$filename" or die " Could not open file $filename\n";
+            print "Dumping data to $filename\n";
+            print FH "$firstline";
+            $nextfile = 1;
+        }
+        print FH "$line";
     }
 
     close FH;
@@ -229,3 +242,11 @@ sub write_file($@) {
     return(FM_OK);
 }
 
+sub parse_date {
+    my $datestr = shift;
+    my @units = qw/year month day hour minute second/;
+    my %dtargs;
+
+    @dtargs{@units} = $datestr =~ /(\d\d\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)/;
+    return DateTime->new(%dtargs, time_zone => "+0100");
+}
