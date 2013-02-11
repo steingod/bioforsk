@@ -42,11 +42,13 @@
 # (6999 and -6999) are recoded to -999.
 # Øystein Godøy, METNO/FOU, 2011-02-10: Added the possibility to operate
 # on a full directory. 
-# Øystein Godøy, METNO/FOU, 2013-02-03: Coorected bugs related to
+# Øystein Godøy, METNO/FOU, 2013-02-03: Corrected bugs related to
 # Date::Manip and DateTime behaviour and summertime.
+# Øystein Godøy, METNO/FOU, 2013-02-11: Added flushing of buffer and extra
+# warnings. Do not process records that are too short.
 #
 # ID:
-# $Id: bioforsk,v 1.6 2013-02-03 12:10:29 steingod Exp $
+# $Id: bioforsk,v 1.7 2013-02-11 20:32:23 steingod Exp $
 #
 
 use strict;
@@ -71,6 +73,8 @@ my %stations = (
 	28 => {name => "Tjøtta", stid => "76530"},
 	29 => {name => "Vågønes", stid => "82260"},
 	);
+
+$| = 1;
 
 sub usage;
 sub read_file;
@@ -153,6 +157,11 @@ sub extract_data($@) {
         next if $line =~ m/^,/;
         $line =~ s/-?6999/-999./g;
         @tmparr = split /,/,$line;
+        print ">> $#tmparr\n";
+        if ($#tmparr < 22) {
+            print "Incomplete record registered in $infile:\n\t$line\n";
+            next;
+        }
         $stnr = $tmparr[0];
         @mk = keys(%stations);
         $match = 0;
@@ -166,12 +175,7 @@ sub extract_data($@) {
         ($yy,$mm,$dd,$ho,$mi,$se) = Date_NthDayOfYear($tmparr[1],$tmparr[2]);
         $ho = int $tmparr[3]/100;
         $mi = $tmparr[3]-($ho*100);
-        #$mystring = sprintf("%4d%02d%02d%02d:%02d:00",$yy,$mm,$dd,$ho,$mi);
         $mystring = sprintf("%4d-%02d-%02dT%02d:%02d:00",$yy,$mm,$dd,$ho,$mi);
-        #$mydate = ParseDateString($mystring);
-        #$mydate = Date_ConvTZ($mydate,"CET","GMT");
-        #$mydate = UnixDate($mydate,"%Y%m%d%H%M%S");
-        #$mydate = $iso8601->parse_datetime($mystring);
         $mydate = parse_date($mystring);
         $mydate->set_time_zone('UTC');
         $myheader = sprintf("%02d %11s   %s",$stnr,$stations{$stnr}{name},$mypar);
